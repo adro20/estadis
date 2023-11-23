@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Contenido de Excel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.1/xlsx.full.min.js"></script>
+    <style>
+        body, h1, p {
+            margin-top: 5px;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+
+        /* Encabezado */
+        .header {
+            background-color: #007BFF;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Contenedor principal */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+
+        /* Texto principal */
+        .main-text {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        /* Botón de carga */
+        .upload-button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        .upload-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Contenedor de la tabla de Excel */
+        .excel-content {
+            margin-top: 20px;
+        }
+
+        /* Tabla de Excel */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        table, th, td {
+            border: 2px solid #ccc;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        /* Contenedor de resultados como una hoja de cálculo */
+        #resultados {
+            margin-top: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            display: none; /* Ocultar resultados al principio */
+        }
+
+        #resultados table {
+            border-collapse: collapse;
+            width: 100%;
+            border: 2px solid #ccc;
+        }
+
+        #resultados th, #resultados td {
+            border: 2px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+
+        #resultados th {
+            background-color: #007BFF;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Contenido de Excel</h1>
+    <p>Seleccione un archivo de Excel:</p>
+    <input type="file" id="archivoInput" accept=".xlsx, .xls">
+    <button onclick="abrirDocumento()">Abrir Documento</button>
+    <button id="calcularEstadisticas" onclick="calcularEstadisticas()">Calcular Estadísticas</button>
+
+    <div class="excel-content" id="contenidoExcel"></div>
+    <div id="resultados">
+        <table>
+            <tr>
+                <th>Columna</th>
+                <th>Media</th>
+                <th>Mediana</th>
+                <th>Moda</th>
+            </tr>
+        </table>
+    </div>
+
+    <script>
+        var sheetData = null; // Variable para almacenar los datos de la hoja de cálculo
+
+        function abrirDocumento() {
+            var input = document.getElementById('archivoInput');
+            var archivo = input.files[0];
+
+            if (archivo) {
+                var extension = archivo.name.split('.').pop().toLowerCase();
+                if (extension === 'xlsx' || extension === 'xls') {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        var data = new Uint8Array(e.target.result);
+                        var workbook = XLSX.read(data, { type: 'array' });
+                        var firstSheetName = workbook.SheetNames[0];
+                        var sheet = workbook.Sheets[firstSheetName];
+                        var html = XLSX.utils.sheet_to_html(sheet);
+
+                        document.getElementById('contenidoExcel').innerHTML = html;
+
+                        sheetData = XLSX.utils.sheet_to_json(sheet);
+                    };
+                    reader.readAsArrayBuffer(archivo);
+                } else {
+                    alert('Por favor, seleccione un archivo de Excel válido.');
+                }
+            } else {
+                alert('Por favor, seleccione un archivo antes de abrirlo.');
+            }
+        }
+
+        function calcularEstadisticas() {
+            if (sheetData) {
+                var keys = Object.keys(sheetData[0]);
+                var resultadosHTML = '';
+
+                keys.forEach(function (key) {
+                    var columnData = sheetData.map(function (row) {
+                        return row[key];
+                    });
+
+                    var media = calcularMedia(columnData);
+                    var mediana = calcularMediana(columnData);
+                    var moda = calcularModa(columnData);
+
+                    resultadosHTML += '<tr>';
+                    resultadosHTML += '<td>' + key + '</td>';
+                    resultadosHTML += '<td>' + media + '</td>';
+                    resultadosHTML += '<td>' + mediana + '</td>';
+                    resultadosHTML += '<td>' + moda + '</td>';
+                    resultadosHTML += '</tr>';
+                });
+
+                // Mostrar los resultados y ocultar el documento abierto
+                document.getElementById('contenidoExcel').style.display = 'none';
+                document.getElementById('resultados').style.display = 'block';
+
+                // Establecer el contenido de la tabla de resultados
+                var resultadosTable = document.querySelector('#resultados table');
+                resultadosTable.innerHTML += resultadosHTML;
+            } else {
+                alert('Abre un archivo Excel antes de calcular las estadísticas.');
+            }
+        }
+
+        function calcularMedia(data) {
+            if (data.length === 0) return 0;
+            var sum = data.reduce(function (acc, value) {
+                return acc + parseFloat(value);
+            }, 0);
+            return sum / data.length;
+        }
+
+        function calcularMediana(data) {
+            if (data.length === 0) return 0;
+            data.sort(function (a, b) {
+                return parseFloat(a) - parseFloat(b);
+            });
+
+            if (data.length % 2 === 0) {
+                var middle1 = parseFloat(data[data.length / 2 - 1]);
+                var middle2 = parseFloat(data[data.length / 2]);
+                return (middle1 + middle2) / 2;
+            } else {
+                return parseFloat(data[Math.floor(data.length / 2)]);
+            }
+        }
+
+        function calcularModa(data) {
+            if (data.length === 0) return 0;
+            var modeMap = {};
+            var maxCount = 0;
+            var modes = [];
+
+            data.forEach(function (num) {
+                num = parseFloat(num);
+                modeMap[num] = (modeMap[num] || 0) + 1;
+                if (modeMap[num] > maxCount) {
+                    modes = [num];
+                    maxCount = modeMap[num];
+                } else if (modeMap[num] === maxCount) {
+                    modes.push(num);
+                }
+            });
+
+            return modes.join(', ');
+        }
+    </script>
+</body>
+</html>
